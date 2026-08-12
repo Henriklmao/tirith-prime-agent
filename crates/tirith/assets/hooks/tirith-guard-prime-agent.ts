@@ -31,21 +31,65 @@ function extractBashCommand(input: Record<string, unknown>): string | undefined 
   // IPython tool with %%bash cell: { code: "%%bash\n..." }
   if (typeof input.code === "string") {
     const code = input.code;
-    // Check if it starts with %%bash
-    const bashMatch = code.match(/^%%bash(?:\s+[^\n]*)?\n([\s\S]*)/);
-    if (bashMatch) {
-      return bashMatch[1].trim();
+    // --- Cell magics that execute shell scripts ---
+    // Match %%bash, %%sh, %%script sh, %%script bash (with optional flags)
+    const cellMagicRe = /^%%(?:bash|sh|script\s+(?:ba)?sh)(?:\s+[^\n]*)?\n([\s\S]*)/i;
+    const cellMatch = code.match(cellMagicRe);
+    if (cellMatch) {
+      return cellMatch[1].trim();
     }
-    // Also handle single-line ! commands (anywhere in the cell, not just start).
+
+    // --- Line-level shell escapes ---
+    //   !command          — direct shell escape
+    //   name = !command   — assignment capturing shell output
+    //   name = !!command  — assignment capturing SList
+    //   x, y = !command   — tuple unpacking from shell output
+    //   %sx command       — IPython system-capture line magic
+    //   %system command   — IPython system line magic
+    const assignmentRe = /^[a-zA-Z_\w]*(?:\s*,\s*[a-zA-Z_\w]*)*\s*=\s*!!?\s*(.+)/;
+    const lineMagicRe = /^%(?:sx|system)\s+(.*)/;
     const bangCommands: string[] = [];
     for (const line of code.split("\n")) {
       const trimmed = line.trimStart();
       if (trimmed.startsWith("!")) {
+        // Simple shell escape: !command
         bangCommands.push(trimmed.slice(1).trim());
+      } else if (/^%sx[\s\t]/.test(trimmed) || /^%system[\s\t]/.test(trimmed)) {
+        // IPython line magics that execute shell commands
+        const lm = trimmed.match(lineMagicRe);
+        if (lm) {
+          bangCommands.push(lm[1].trim());
+        }
+      } else {
+        // Assignment shell escape: name = !command  or  name = !!command
+        const m = trimmed.match(assignmentRe);
+        if (m) {
+          bangCommands.push(m[1].trim());
+        }
       }
     }
     if (bangCommands.length > 0) {
       return bangCommands.join("; ");
+    }
+
+    // --- Python code that invokes shell commands (defence-in-depth) ---
+    // Catches os.system(), subprocess.*, os.popen(), and get_ipython().system()
+    // when no direct shell syntax was found above.
+    // This is heuristic; obfuscated calls can still evade, but it prevents
+    // trivial bypasses.
+    const shellCallRe = /(?:^|\b)(?:os\.system|os\.popen|subprocess\.(?:call|run|Popen|check_call|check_output|getoutput|getstatusoutput)|get_ipython\(\)\.system(?:_raw)?)\s*\(([^)]{0,200})\)/gm;
+    const pyShellCommands: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = shellCallRe.exec(code)) !== null) {
+      const arg = m[1].trim();
+      // Only extract commands given as plain or f-strings (single/double quoted)
+      const strMatch = arg.match(/^(?:f?["'])((?:[^"'\\]|\\.)*)(?:["'])/);
+      if (strMatch) {
+        pyShellCommands.push(strMatch[1].replace(/\\(.)/g, "$1"));
+      }
+    }
+    if (pyShellCommands.length > 0) {
+      return pyShellCommands.join("; ");
     }
   }
   return undefined;
