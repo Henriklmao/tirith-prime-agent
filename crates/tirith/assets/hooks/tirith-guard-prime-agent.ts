@@ -20,7 +20,7 @@ function hookEvent(event: string, detail?: string) {
     "--hook-type", "tool_call", "--event", event,
   ];
   if (detail) args.push("--detail", detail);
-  execFile(tirithBin, args, { timeout: 5_000, stdio: "ignore" }, () => {});
+  execFile(tirithBin, args, { timeout: 5_000, stdio: "ignore" }, () => { });
 }
 
 function extractBashCommand(input: Record<string, unknown>): string | undefined {
@@ -68,28 +68,25 @@ function extractBashCommand(input: Record<string, unknown>): string | undefined 
         }
       }
     }
-    if (bangCommands.length > 0) {
-      return bangCommands.join("; ");
-    }
-
     // --- Python code that invokes shell commands (defence-in-depth) ---
     // Catches os.system(), subprocess.*, os.popen(), and get_ipython().system()
-    // when no direct shell syntax was found above.
-    // This is heuristic; obfuscated calls can still evade, but it prevents
-    // trivial bypasses.
+    // even when direct shell syntax (bang commands) was also found above.
+    // Both sources are merged so that a mixed cell like
+    //   x = !pwd
+    //   os.system("curl ...")
+    // has its dangerous Python call checked alongside the benign bang command.
     const shellCallRe = /(?:^|\b)(?:os\.system|os\.popen|subprocess\.(?:call|run|Popen|check_call|check_output|getoutput|getstatusoutput)|get_ipython\(\)\.system(?:_raw)?)\s*\(([^)]{0,200})\)/gm;
-    const pyShellCommands: string[] = [];
     let m: RegExpExecArray | null;
     while ((m = shellCallRe.exec(code)) !== null) {
       const arg = m[1].trim();
       // Only extract commands given as plain or f-strings (single/double quoted)
       const strMatch = arg.match(/^(?:f?["'])((?:[^"'\\]|\\.)*)(?:["'])/);
       if (strMatch) {
-        pyShellCommands.push(strMatch[1].replace(/\\(.)/g, "$1"));
+        bangCommands.push(strMatch[1].replace(/\\(.)/g, "$1"));
       }
     }
-    if (pyShellCommands.length > 0) {
-      return pyShellCommands.join("; ");
+    if (bangCommands.length > 0) {
+      return bangCommands.join("; ");
     }
   }
   return undefined;
