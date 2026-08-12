@@ -35,6 +35,7 @@ mod run_impl {
         "kiro",
         "openclaw",
         "pi-cli",
+        "prime-agent",
         "vscode",
         "windsurf",
     ];
@@ -130,7 +131,7 @@ mod run_impl {
         let tirith_bin = resolve_tirith_bin(dry_run)?;
 
         // Most hook scripts are Python; codex/pi-cli/openclaw are not.
-        if tool != "codex" && tool != "pi-cli" && tool != "openclaw" {
+        if tool != "codex" && tool != "pi-cli" && tool != "prime-agent" && tool != "openclaw" {
             check_binary_on_path("python3", dry_run)?;
         }
 
@@ -164,6 +165,7 @@ mod run_impl {
             "kiro" => setup_kiro(&opts),
             "openclaw" => setup_openclaw(&opts),
             "pi-cli" => setup_pi_cli(&opts),
+            "prime-agent" => setup_prime_agent(&opts),
             "vscode" => setup_vscode(&opts),
             "windsurf" => setup_windsurf(&opts),
             _ => Err(unknown_tool_error(tool)),
@@ -173,7 +175,7 @@ mod run_impl {
     /// Resolve scope for a given tool, applying defaults and validation.
     pub(super) fn resolve_scope(tool: &str, scope: Option<&str>) -> Result<Scope, String> {
         match tool {
-            "claude-code" | "cursor" | "gemini-cli" | "kiro" | "openclaw" | "pi-cli" => {
+            "claude-code" | "cursor" | "gemini-cli" | "kiro" | "openclaw" | "pi-cli" | "prime-agent" => {
                 match scope {
                     Some("project") | None => Ok(Scope::Project),
                     Some("user") => Ok(Scope::User),
@@ -464,6 +466,10 @@ mod run_impl {
 
     fn setup_openclaw(opts: &SetupOpts) -> Result<(), String> {
         super::tools::setup_openclaw(opts)
+    }
+
+    fn setup_prime_agent(opts: &SetupOpts) -> Result<(), String> {
+        super::tools::setup_prime_agent(opts)
     }
 
     fn setup_pi_cli(opts: &SetupOpts) -> Result<(), String> {
