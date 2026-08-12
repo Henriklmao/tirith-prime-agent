@@ -964,9 +964,10 @@ Examples:
   tirith setup cursor
   tirith setup copilot-cli
   tirith setup kiro --scope user
-  tirith setup claude-code --dry-run")]
+  tirith setup claude-code --dry-run
+  tirith setup prime-agent --with-mcp")]
     Setup {
-        /// Tool to configure: claude-code, codex, copilot-cli, cursor, gemini-cli, kiro, openclaw, pi-cli, vscode, windsurf
+        /// Tool to configure: claude-code, codex, copilot-cli, cursor, gemini-cli, kiro, openclaw, pi-cli, prime-agent, vscode, windsurf
         tool: String,
 
         /// Scope: project (default for most tools) or user
