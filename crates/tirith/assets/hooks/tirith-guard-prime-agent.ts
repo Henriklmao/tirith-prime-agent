@@ -36,10 +36,16 @@ function extractBashCommand(input: Record<string, unknown>): string | undefined 
     if (bashMatch) {
       return bashMatch[1].trim();
     }
-    // Also handle single-line ! commands
-    const bangMatch = code.match(/^!(.+)/);
-    if (bangMatch) {
-      return bangMatch[1].trim();
+    // Also handle single-line ! commands (anywhere in the cell, not just start).
+    const bangCommands: string[] = [];
+    for (const line of code.split("\n")) {
+      const trimmed = line.trimStart();
+      if (trimmed.startsWith("!")) {
+        bangCommands.push(trimmed.slice(1).trim());
+      }
+    }
+    if (bangCommands.length > 0) {
+      return bangCommands.join("; ");
     }
   }
   return undefined;
