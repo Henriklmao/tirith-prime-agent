@@ -119,9 +119,9 @@ mod run_impl {
         update_configs: bool,
     ) -> Result<(), String> {
         // --with-mcp only applies to claude-code and gemini-cli.
-        if with_mcp && tool != "claude-code" && tool != "gemini-cli" {
+        if with_mcp && tool != "claude-code" && tool != "gemini-cli" && tool != "prime-agent" {
             return Err(
-                "--with-mcp is only supported for claude-code and gemini-cli (other tools register MCP automatically or don't support it)"
+                "--with-mcp is only supported for claude-code, gemini-cli, and prime-agent (other tools register MCP automatically or don't support it)"
                     .into(),
             );
         }

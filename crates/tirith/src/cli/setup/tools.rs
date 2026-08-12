@@ -528,6 +528,77 @@ pub fn setup_pi_cli(opts: &SetupOpts) -> Result<(), String> {
     Ok(())
 }
 
+// Prime Agent extensions live in:
+//   - User scope: `~/.prime/agent/extensions/`
+//   - Project scope: `.prime/agent/extensions/`
+// With `--with-mcp`, also registers the tirith MCP gateway server in the
+// Prime Agent MCP settings file (`~/.prime/agent/settings.json` or `.prime/agent/settings.json`).
+pub fn setup_prime_agent(opts: &SetupOpts) -> Result<(), String> {
+    let home = home::home_dir().ok_or_else(|| "could not determine home directory".to_string())?;
+
+    let (target, scope_root) = match opts.scope {
+        Scope::Project => {
+            let cwd = std::env::current_dir().map_err(|e| format!("current_dir: {e}"))?;
+            (cwd.join(".prime").join("agent"), Some(cwd))
+        }
+        Scope::User => (home.join(".prime").join("agent"), Some(home.clone())),
+    };
+
+    fs_helpers::validate_target_dir(&target, scope_root.as_deref())?;
+
+    // Install the extension
+    let extensions_dir = target.join("extensions");
+    if !opts.dry_run {
+        std::fs::create_dir_all(&extensions_dir)
+            .map_err(|e| format!("create {}: {e}", extensions_dir.display()))?;
+    }
+
+    let guard_path = extensions_dir.join("tirith-guard.ts");
+    let guard_content = crate::assets::PRIME_AGENT_GUARD_TS;
+    fs_helpers::write_hook_script(&guard_path, guard_content, opts.force, opts.dry_run)?;
+
+    if opts.update_configs {
+        eprintln!();
+        eprintln!("tirith: Prime Agent hook scripts refreshed");
+        return Ok(());
+    }
+
+    // --with-mcp: register tirith gateway as MCP server in settings.json
+    if opts.with_mcp {
+        let settings_path = target.join("settings.json");
+        merge::merge_mcp_json(
+            &settings_path,
+            "tirith",
+            serde_json::json!({
+                "type": "stdio",
+                "command": opts.tirith_bin,
+                "args": ["mcp-server"],
+                "env": {}
+            }),
+            opts.force,
+            opts.dry_run,
+        )?;
+    }
+
+    if let Err(e) =
+        super::shell_profile::install_shell_hook(&opts.tirith_bin, opts.force, opts.dry_run)
+    {
+        eprintln!("tirith: WARNING: {e}");
+    }
+
+    eprintln!();
+    eprintln!("tirith: Prime Agent setup complete");
+    eprintln!("  Extension installed to: {}", guard_path.display());
+    if opts.with_mcp {
+        eprintln!(
+            "  MCP server registered in: {}",
+            target.join("settings.json").display()
+        );
+    }
+    eprintln!("  Run `tirith doctor` to verify your configuration.");
+    Ok(())
+}
+
 pub fn setup_openclaw(opts: &SetupOpts) -> Result<(), String> {
     let home = home::home_dir().ok_or_else(|| "could not determine home directory".to_string())?;
 
