@@ -36,7 +36,7 @@ function extractBashCommand(input: Record<string, unknown>): string | undefined 
   if (typeof input.code === "string") {
     const code = input.code;
     // Check if it starts with %%bash
-    const bashMatch = code.match(/^%%bash\s*\n([\s\S]*)/);
+    const bashMatch = code.match(/^%%bash(?:\s+[^\n]*)?\n([\s\S]*)/);
     if (bashMatch) {
       return bashMatch[1].trim();
     }
