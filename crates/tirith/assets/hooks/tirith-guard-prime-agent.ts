@@ -11,20 +11,16 @@
 //   TIRITH_FAIL_OPEN        — "1" to allow on error (default: deny)
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { execFileSync } from "child_process";
+import { execFile, execFileSync } from "node:child_process";
 
 function hookEvent(event: string, detail?: string) {
-  try {
-    const tirithBin = process.env.TIRITH_BIN || "tirith";
-    const args = [
-      "hook-event", "--integration", "prime-agent",
-      "--hook-type", "tool_call", "--event", event,
-    ];
-    if (detail) args.push("--detail", detail);
-    execFileSync(tirithBin, args, { timeout: 5_000, stdio: "ignore" });
-  } catch {
-    // fire-and-forget telemetry
-  }
+  const tirithBin = process.env.TIRITH_BIN || "tirith";
+  const args = [
+    "hook-event", "--integration", "prime-agent",
+    "--hook-type", "tool_call", "--event", event,
+  ];
+  if (detail) args.push("--detail", detail);
+  execFile(tirithBin, args, { timeout: 5_000, stdio: "ignore" }, () => {});
 }
 
 function extractBashCommand(input: Record<string, unknown>): string | undefined {
@@ -155,6 +151,9 @@ function checkCommand(command: string): { block: boolean; reason?: string } {
 
 export default function (pi: ExtensionAPI) {
   pi.on("tool_call", async (event, _ctx) => {
+    // Only check bash and ipython tools
+    if (event.toolName !== "bash" && event.toolName !== "ipython") return undefined;
+
     // Extract bash command from either bash or ipython tool
     const command = extractBashCommand(event.input as Record<string, unknown>);
     if (!command) return undefined;

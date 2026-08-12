@@ -974,7 +974,7 @@ Examples:
         #[arg(long)]
         scope: Option<String>,
 
-        /// Also register tirith MCP server (Claude Code and Gemini CLI)
+        /// Also register tirith MCP server (Claude Code, Gemini CLI, and Prime Agent)
         #[arg(long)]
         with_mcp: bool,
 
